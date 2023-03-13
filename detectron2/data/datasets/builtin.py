@@ -29,6 +29,8 @@ from .lvis import get_lvis_instances_meta, register_lvis_instances
 from .pascal_voc import register_pascal_voc
 from .voc_style_coco import register_voc_style_coco
 from .register_coco import register_coco_instances, register_coco_panoptic_separated
+from .dota import register_dota
+from .dior import register_dior
 
 # ==== Predefined datasets and splits for COCO ==========
 
@@ -235,6 +237,49 @@ def register_all_pascal_voc(root):
         register_pascal_voc(name, os.path.join(root, dirname), split, year)
         MetadataCatalog.get(name).evaluator_type = "pascal_voc"
 
+# ==== Predefined splits for DOTA ===========
+def register_all_dota(root):
+    SPLITS = [
+        ("t1_dota_train", "DOTA", "t1_train"),
+        ("dota_test", "DOTA", "all_task_test"),  # t*_test合在一起
+        ("dota_val", "DOTA", "all_task_val"),  # 每个task选出1000张图，总共4000张
+        ("t1_dota_known_test", "DOTA", "t1_known_test"),  # t1_test
+        ("t2_dota_train", "DOTA", "t2_train"),
+        ("t1_dota_val_with_known_and_unk", "DOTA", "t1_train_with_unk"),
+        ("t2_dota_val_with_known_and_unk", "DOTA", "t2_train_with_unk"),
+        ("t3_dota_val_with_known_and_unk", "DOTA", "t3_train_with_unk"),
+        ("t4_dota_val_with_known_and_unk", "DOTA", "t4_train"),
+        ("t2_dota_ft", "DOTA", "t2_ft"),  # fine_tune 从t1_train和t2_train抽一部分
+        ("t3_dota_train", "DOTA", "t3_train"),
+        ("t3_dota_ft", "DOTA", "t3_ft"),
+        ("t4_dota_train", "DOTA", "t4_train"),
+        ("t4_dota_ft", "DOTA", "t4_ft")
+    ]
+    for name, dirname, split in SPLITS:
+        register_dota(name, os.path.join(root, dirname), split)
+        MetadataCatalog.get(name).evaluator_type = "dota"
+
+# ==== Predefined splits for DIOR ===========
+def register_all_dior(root):
+    SPLITS = [
+        ("t1_dior_train", "DIOR", "t1_train"),
+        ("dior_test", "DIOR", "all_task_test"),  # t*_test合在一起
+        ("dior_val", "DIOR", "all_task_val"),  # 每个task选出1000张图，总共4000张
+        ("t1_dior_known_test", "DIOR", "t1_known_test"),  # t1_test
+        ("t2_dior_train", "DIOR", "t2_train"),
+        ("t1_dior_val_with_known_and_unk", "DIOR", "t1_train_with_unk"),
+        ("t2_dior_val_with_known_and_unk", "DIOR", "t2_train_with_unk"),
+        ("t3_dior_val_with_known_and_unk", "DIOR", "t3_train_with_unk"),
+        ("t4_dior_val_with_known_and_unk", "DIOR", "t4_train"),
+        ("t2_dior_ft", "DIOR", "t2_ft"),  # fine_tune 从t1_train和t2_train抽一部分
+        ("t3_dior_train", "DIOR", "t3_train"),
+        ("t3_dior_ft", "DIOR", "t3_ft"),
+        ("t4_dior_train", "DIOR", "t4_train"),
+        ("t4_dior_ft", "DIOR", "t4_ft")
+    ]
+    for name, dirname, split in SPLITS:
+        register_dior(name, os.path.join(root, dirname), split)
+        MetadataCatalog.get(name).evaluator_type = "dior"
 
 # def register_all_voc_style_coco(root):
 #     SPLITS = [
@@ -276,12 +321,14 @@ def register_all_ade20k(root):
 # Internally at fb, we register them elsewhere
 if __name__.endswith(".builtin"):
     # Register them all under "./datasets"
-    _root = os.getenv("DETECTRON2_DATASETS", "datasets")
+    _root = os.getenv("DETECTRON2_DATASETS", "/mnt/diskb/xu_hu/OWOD/datasets")
     register_all_coco(_root)
     register_all_lvis(_root)
     register_all_cityscapes(_root)
     register_all_cityscapes_panoptic(_root)
     register_all_pascal_voc(_root)
+    register_all_dota(_root)
+    register_all_dior(_root)
     # register_all_pascal_voc('/home/joseph/workspace/OWOD/datasets')
     # register_all_pascal_voc('/home/joseph/workspace/OWOD/datasets')
     # register_all_voc_style_coco('/home/fk1/workspace/OWOD/datasets')

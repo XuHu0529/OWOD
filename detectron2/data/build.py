@@ -307,7 +307,7 @@ def label_known_class_and_unknown(cfg, dataset_dicts):
     prev_intro_cls = cfg.OWOD.PREV_INTRODUCED_CLS
     curr_intro_cls = cfg.OWOD.CUR_INTRODUCED_CLS
     total_num_class = cfg.MODEL.ROI_HEADS.NUM_CLASSES
-
+    print(total_num_class)
     known_classes = range(0, prev_intro_cls+curr_intro_cls)
 
     logger = logging.getLogger(__name__)

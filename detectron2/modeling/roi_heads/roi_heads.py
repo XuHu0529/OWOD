@@ -10,6 +10,7 @@ import shortuuid
 from typing import Dict, List, Optional, Tuple, Union
 import torch
 from torch import nn
+import math
 
 from detectron2.config import configurable
 from detectron2.layers import ShapeSpec, nonzero_tuple
@@ -20,6 +21,9 @@ from detectron2.utils.registry import Registry
 from ..backbone.resnet import BottleneckBlock, ResNet
 from ..matcher import Matcher
 from ..poolers import ROIPooler
+from ..attention import CrossAttention
+from ..sim_head import SimNet
+from ..drop_block import DropBlock2D
 from ..proposal_generator.proposal_utils import add_ground_truth_to_proposals
 from ..sampling import subsample_labels
 from .box_head import build_box_head
@@ -411,6 +415,11 @@ class Res5ROIHeads(ROIHeads):
                 ShapeSpec(channels=out_channels, width=pooler_resolution, height=pooler_resolution),
             )
 
+        # self.cross_att = CrossAttention(hidden_size=1024, attention_head_size=1024, key_hidden_size=1024,
+        #                                 query_hidden_size=1024)
+        # self.sim_head = SimNet(in_dim=2048)
+        # self.drop_block = DropBlock2D(block_size=3, drop_prob=0.3)
+
     def _build_res5_block(self, cfg):
         # fmt: off
         stage_channel_factor = 2 ** 3  # res5 is 8x res2
@@ -438,13 +447,12 @@ class Res5ROIHeads(ROIHeads):
         return nn.Sequential(*blocks), out_channels
 
     def _shared_roi_transform(self, features, boxes):
-        x = self.pooler(features, boxes)
-        return self.res5(x)
+        return self.pooler(features, boxes)
 
     def log_features(self, features, proposals):
         gt_classes = torch.cat([p.gt_classes for p in proposals])
         data = (features, gt_classes)
-        location = '/home/fk1/workspace/OWOD/output/features/' + shortuuid.uuid() + '.pkl'
+        location = '/mnt/diskb/xu_hu/OWOD/output/dota_only_frcnn/t3/feature_store/' + shortuuid.uuid() + '.pkl'
         torch.save(data, location)
 
     def compute_energy(self, predictions, proposals):
@@ -459,17 +467,52 @@ class Res5ROIHeads(ROIHeads):
         See :meth:`ROIHeads.forward`.
         """
         del images
-
         if self.training:
             assert targets
             proposals = self.label_and_sample_proposals(proposals, targets)
+            gt_classes = [x.gt_classes for x in proposals]
         del targets
 
         proposal_boxes = [x.proposal_boxes for x in proposals]
+
         box_features = self._shared_roi_transform(
             [features[f] for f in self.in_features], proposal_boxes
         )
-        input_features = box_features.mean(dim=[2, 3])
+
+
+        # try to find unknown objects through cross-attention with high-score objects
+        # num_images = len(proposals)
+        # batch_idx = torch.arange(num_images)
+        # all_tokens = box_features.mean(dim=[2, 3]).reshape(num_images, 512, -1)
+        # objectness_scores = torch.stack([x.objectness_logits for x in proposals])
+        # logits_i, idx = objectness_scores.sort(descending=True, dim=1)
+        # topk_scores_i = logits_i[batch_idx, :10]
+        # topk_idx = idx[batch_idx, :10]
+        #
+        # masks = torch.zeros(objectness_scores.shape, dtype=torch.bool)
+        # for i, idx in enumerate(topk_idx):
+        #     masks[i][idx] = True
+        # key_tokens = torch.stack([
+        #     tokens[per_selected_top]
+        #     for per_selected_top, tokens in zip(topk_idx, all_tokens)
+        # ])
+        # # query_tokens = torch.stack([
+        # #     tokens[mask == False]
+        # #     for mask, tokens in zip(masks, all_tokens)
+        # # ])
+        #
+        # att_embeddings, att_scores = self.cross_att(all_tokens, key_tokens, return_scores=True)
+        # att_scores, att_idx = att_scores.mean(-1).sort(descending=True, dim=1)
+        # att_embeddings = att_embeddings.reshape(box_features.shape[0], -1).unsqueeze(-1).unsqueeze(-1)
+        # box_features = att_embeddings + box_features
+
+        pooled_features = self.res5(box_features)
+        input_features = pooled_features.mean(dim=[2, 3])
+
+        # if self.training:
+        #     sim_feature = self.sim_head(input_features)
+        #     aug_pooled_feats = self.drop_block(pooled_features)
+        #     aug_roi_feats = aug_pooled_feats.mean(dim=[2, 3])
         predictions = self.box_predictor(input_features)
 
         if self.training:
